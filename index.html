@@ -301,6 +301,33 @@
     function closeLeaderboard() {
       document.getElementById("leaderboardModal").style.display = "none";
     }
+    // 手机触摸操作支持
+let touchStart = null;
+
+canvas.addEventListener("touchstart", (e) => {
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    touchStart = { x: t.clientX, y: t.clientY };
+  }
+});
+
+canvas.addEventListener("touchend", (e) => {
+  if (!touchStart) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStart.x;
+  const dy = t.clientY - touchStart.y;
+  const threshold = 30;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > threshold) move("right");
+    else if (dx < -threshold) move("left");
+  } else {
+    if (dy > threshold) move("down");
+    else if (dy < -threshold) move("up");
+  }
+
+  touchStart = null;
+});
 
     startGame();
   </script>
