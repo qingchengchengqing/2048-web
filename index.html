@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>2048</title>
+  <style>
+    body {
+      background: #faf8ef;
+      font-family: "Arial", sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    canvas {
+      margin-top: 30px;
+      background: #bbada0;
+      border-radius: 10px;
+    }
+    #scoreBoard {
+      margin-top: 20px;
+      font-size: 20px;
+      color: #776e65;
+    }
+    button {
+      margin: 10px 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #8f7a66;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    /* 弹层样式 */
+    #leaderboardModal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    #leaderboardContent {
+      background: #fff;
+      padding: 20px 30px;
+      border-radius: 10px;
+      width: 300px;
+      text-align: left;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    #leaderboardContent h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    #leaderboardContent ol {
+      padding-left: 20px;
+    }
+    #leaderboardContent button {
+      margin-top: 15px;
+      width: 100%;
+      background-color: #8f7a66;
+    }
+  </style>
+</head>
+<body>
+  <h1>2048</h1>
+  <div id="scoreBoard">
+    得分: <span id="score">0</span>　｜　最高分: <span id="highScore">0</span>
+  </div>
+  <canvas id="gameCanvas" width="400" height="400"></canvas><br/>
+  <button onclick="startGame()">重新开始</button>
+  <button onclick="showLeaderboard()">查看前十历史最高分</button>
+
+  <!-- 排行榜弹窗 -->
+  <div id="leaderboardModal">
+    <div id="leaderboardContent">
+      <h2>前十最高分</h2>
+      <ol id="leaderboardList"></ol>
+      <button onclick="closeLeaderboard()">关闭</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
+    const highScoreEl = document.getElementById("highScore");
+
+    const GRID_SIZE = 4;
+    const CELL_SIZE = 80;
+    const CELL_GAP = 16;
+    const WIDTH = canvas.width;
+
+    let grid = [];
+    let score = 0;
+    let highScore = localStorage.getItem("highScore") || 0;
+    highScoreEl.textContent = highScore;
+
+    const COLORS = {
+      0: "#ccc0b3",
+      2: "#eee4da",
+      4: "#ede0c8",
+      8: "#f2b179",
+      16: "#f59563",
+      32: "#f67c5f",
+      64: "#f65e3b",
+      128: "#edcf72",
+      256: "#edcc61",
+      512: "#edc850",
+      1024: "#edc53f",
+      2048: "#edc22e"
+    };
+
+    function initGrid() {
+      grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
+      score = 0;
+      updateScore();
+      addTile();
+      addTile();
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, WIDTH, WIDTH);
+      for (let i = 0; i < GRID_SIZE; i++) {
+        for (let j = 0; j < GRID_SIZE; j++) {
+          drawTile(i, j, grid[i][j]);
+        }
+      }
+    }
+
+    function drawTile(row, col, value) {
+      const x = col * (CELL_SIZE + CELL_GAP);
+      const y = row * (CELL_SIZE + CELL_GAP);
+      ctx.fillStyle = COLORS[value] || "#3c3a32";
+      ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+
+      if (value !== 0) {
+        ctx.font = "bold 32px Arial";
+        ctx.fillStyle = "#776e65";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(value, x + CELL_SIZE / 2, y + CELL_SIZE / 2);
+      }
+    }
+
+    function addTile() {
+      let empty = [];
+      for (let i = 0; i < GRID_SIZE; i++) {
+        for (let j = 0; j < GRID_SIZE; j++) {
+          if (grid[i][j] === 0) empty.push([i, j]);
+        }
+      }
+      if (empty.length) {
+        const [r, c] = empty[Math.floor(Math.random() * empty.length)];
+        grid[r][c] = Math.random() < 0.9 ? 2 : 4;
+      }
+    }
+
+    function updateScore() {
+      scoreEl.textContent = score;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("highScore", highScore);
+      }
+      highScoreEl.textContent = highScore;
+    }
+
+    function move(direction) {
+      let moved = false;
+      for (let i = 0; i < GRID_SIZE; i++) {
+        let line = [];
+        for (let j = 0; j < GRID_SIZE; j++) {
+          const val = direction === "left" || direction === "right"
+            ? grid[i][j] : grid[j][i];
+          line.push(val);
+        }
+
+        if (direction === "right" || direction === "down") line.reverse();
+
+        const merged = mergeLine(line);
+
+        if (direction === "right" || direction === "down") merged.reverse();
+
+        for (let j = 0; j < GRID_SIZE; j++) {
+          const val = merged[j];
+          if (direction === "left" || direction === "right") {
+            if (grid[i][j] !== val) moved = true;
+            grid[i][j] = val;
+          } else {
+            if (grid[j][i] !== val) moved = true;
+            grid[j][i] = val;
+          }
+        }
+      }
+      if (moved) {
+        addTile();
+        draw();
+        if (checkGameOver()) {
+          setTimeout(() => {
+            alert("游戏结束！");
+            saveToLeaderboard(score);
+          }, 100);
+        }
+      }
+    }
+
+    function mergeLine(line) {
+      let newLine = line.filter(v => v !== 0);
+      for (let i = 0; i < newLine.length - 1; i++) {
+        if (newLine[i] === newLine[i + 1]) {
+          newLine[i] *= 2;
+          score += newLine[i];
+          newLine[i + 1] = 0;
+        }
+      }
+      newLine = newLine.filter(v => v !== 0);
+      while (newLine.length < GRID_SIZE) newLine.push(0);
+      updateScore();
+      return newLine;
+    }
+
+    function checkGameOver() {
+      for (let i = 0; i < GRID_SIZE; i++) {
+        for (let j = 0; j < GRID_SIZE; j++) {
+          if (grid[i][j] === 0) return false;
+          if (j < GRID_SIZE - 1 && grid[i][j] === grid[i][j + 1]) return false;
+          if (i < GRID_SIZE - 1 && grid[i][j] === grid[i + 1][j]) return false;
+        }
+      }
+      return true;
+    }
+
+    document.addEventListener("keydown", (e) => {
+      switch (e.key) {
+        case "ArrowLeft": move("left"); break;
+        case "ArrowRight": move("right"); break;
+        case "ArrowUp": move("up"); break;
+        case "ArrowDown": move("down"); break;
+      }
+    });
+
+    // 鼠标拖动控制
+    let dragStart = null;
+    canvas.addEventListener("mousedown", (e) => {
+      dragStart = { x: e.clientX, y: e.clientY };
+    });
+    canvas.addEventListener("mouseup", (e) => {
+      if (!dragStart) return;
+      const dx = e.clientX - dragStart.x;
+      const dy = e.clientY - dragStart.y;
+      const threshold = 30;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > threshold) move("right");
+        else if (dx < -threshold) move("left");
+      } else {
+        if (dy > threshold) move("down");
+        else if (dy < -threshold) move("up");
+      }
+      dragStart = null;
+    });
+
+    function startGame() {
+      initGrid();
+      highScoreEl.textContent = highScore;
+    }
+
+    function saveToLeaderboard(score) {
+      let board = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+      board.push(score);
+      board.sort((a, b) => b - a);
+      board = board.slice(0, 10);
+      localStorage.setItem("leaderboard", JSON.stringify(board));
+    }
+
+    function showLeaderboard() {
+      const board = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+      const list = document.getElementById("leaderboardList");
+      list.innerHTML = "";
+
+      if (board.length === 0) {
+        const item = document.createElement("li");
+        item.textContent = "暂无记录";
+        list.appendChild(item);
+      } else {
+        board.forEach((score, index) => {
+          const item = document.createElement("li");
+          item.textContent = `${score}`;
+          list.appendChild(item);
+        });
+      }
+
+      document.getElementById("leaderboardModal").style.display = "flex";
+    }
+
+    function closeLeaderboard() {
+      document.getElementById("leaderboardModal").style.display = "none";
+    }
+
+    startGame();
+  </script>
+</body>
+</html>
