@@ -3,24 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <title>2048</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
-    body {
+    body, html {
+      margin: 0;
+      padding: 0;
       background: #faf8ef;
       font-family: "Arial", sans-serif;
       text-align: center;
-      margin: 0;
-      padding: 0;
+      touch-action: none;
+      overscroll-behavior: contain;
     }
+
     canvas {
       margin-top: 30px;
       background: #bbada0;
       border-radius: 10px;
+      max-width: 90vw;
+      width: 90vw;
+      height: auto;
+      max-height: 90vw;
     }
+
     #scoreBoard {
       margin-top: 20px;
       font-size: 20px;
       color: #776e65;
     }
+
     button {
       margin: 10px 5px;
       padding: 10px 20px;
@@ -32,7 +42,6 @@
       cursor: pointer;
     }
 
-    /* 弹层样式 */
     #leaderboardModal {
       position: fixed;
       top: 0;
@@ -45,21 +54,29 @@
       justify-content: center;
       z-index: 1000;
     }
+
     #leaderboardContent {
       background: #fff;
       padding: 20px 30px;
       border-radius: 10px;
-      width: 300px;
+      width: 90%;
+      max-width: 300px;
+      max-height: 80vh;
+      overflow-y: auto;
       text-align: left;
       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     }
+
     #leaderboardContent h2 {
       margin-top: 0;
       color: #333;
     }
+
     #leaderboardContent ol {
       padding-left: 20px;
+      margin: 0;
     }
+
     #leaderboardContent button {
       margin-top: 15px;
       width: 100%;
@@ -76,7 +93,6 @@
   <button onclick="startGame()">重新开始</button>
   <button onclick="showLeaderboard()">查看前十历史最高分</button>
 
-  <!-- 排行榜弹窗 -->
   <div id="leaderboardModal">
     <div id="leaderboardContent">
       <h2>前十最高分</h2>
@@ -94,7 +110,7 @@
     const GRID_SIZE = 4;
     const CELL_SIZE = 80;
     const CELL_GAP = 16;
-    const WIDTH = canvas.width;
+    let WIDTH = canvas.width;
 
     let grid = [];
     let score = 0;
@@ -245,7 +261,6 @@
       }
     });
 
-    // 鼠标拖动控制
     let dragStart = null;
     canvas.addEventListener("mousedown", (e) => {
       dragStart = { x: e.clientX, y: e.clientY };
@@ -263,6 +278,30 @@
         else if (dy < -threshold) move("up");
       }
       dragStart = null;
+    });
+
+    // 触摸支持
+    let touchStart = null;
+    canvas.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 1) {
+        const t = e.touches[0];
+        touchStart = { x: t.clientX, y: t.clientY };
+      }
+    });
+    canvas.addEventListener("touchend", (e) => {
+      if (!touchStart) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchStart.x;
+      const dy = t.clientY - touchStart.y;
+      const threshold = 30;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > threshold) move("right");
+        else if (dx < -threshold) move("left");
+      } else {
+        if (dy > threshold) move("down");
+        else if (dy < -threshold) move("up");
+      }
+      touchStart = null;
     });
 
     function startGame() {
@@ -288,46 +327,24 @@
         item.textContent = "暂无记录";
         list.appendChild(item);
       } else {
-        board.forEach((score, index) => {
+        board.forEach((score) => {
           const item = document.createElement("li");
           item.textContent = `${score}`;
           list.appendChild(item);
         });
       }
 
-      document.getElementById("leaderboardModal").style.display = "flex";
+      const modal = document.getElementById("leaderboardModal");
+      modal.style.display = "flex";
+
+      modal.onclick = (e) => {
+        if (e.target === modal) closeLeaderboard();
+      };
     }
 
     function closeLeaderboard() {
       document.getElementById("leaderboardModal").style.display = "none";
     }
-    // 手机触摸操作支持
-let touchStart = null;
-
-canvas.addEventListener("touchstart", (e) => {
-  if (e.touches.length === 1) {
-    const t = e.touches[0];
-    touchStart = { x: t.clientX, y: t.clientY };
-  }
-});
-
-canvas.addEventListener("touchend", (e) => {
-  if (!touchStart) return;
-  const t = e.changedTouches[0];
-  const dx = t.clientX - touchStart.x;
-  const dy = t.clientY - touchStart.y;
-  const threshold = 30;
-
-  if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > threshold) move("right");
-    else if (dx < -threshold) move("left");
-  } else {
-    if (dy > threshold) move("down");
-    else if (dy < -threshold) move("up");
-  }
-
-  touchStart = null;
-});
 
     startGame();
   </script>
